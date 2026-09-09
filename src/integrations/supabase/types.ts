@@ -14,7 +14,131 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      scenes: {
+        Row: {
+          audio_path: string | null
+          created_at: string
+          duration_seconds: number
+          id: string
+          idx: number
+          image_path: string | null
+          image_prompt: string
+          narration_text: string
+          sound_cue: string | null
+          status: string
+          story_id: string
+          user_id: string
+        }
+        Insert: {
+          audio_path?: string | null
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          idx: number
+          image_path?: string | null
+          image_prompt: string
+          narration_text: string
+          sound_cue?: string | null
+          status?: string
+          story_id: string
+          user_id: string
+        }
+        Update: {
+          audio_path?: string | null
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          idx?: number
+          image_path?: string | null
+          image_prompt?: string
+          narration_text?: string
+          sound_cue?: string | null
+          status?: string
+          story_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenes_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stories: {
+        Row: {
+          age_band: string
+          art_style: string
+          character_bible: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          idea: string
+          length_pref: string
+          narration_language: string
+          scene_count: number
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          voice_type: string
+        }
+        Insert: {
+          age_band?: string
+          art_style?: string
+          character_bible?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          idea: string
+          length_pref?: string
+          narration_language?: string
+          scene_count?: number
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+          voice_type?: string
+        }
+        Update: {
+          age_band?: string
+          art_style?: string
+          character_bible?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          idea?: string
+          length_pref?: string
+          narration_language?: string
+          scene_count?: number
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          voice_type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
