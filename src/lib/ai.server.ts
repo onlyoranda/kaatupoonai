@@ -1,0 +1,204 @@
+// Server-only helpers for the Lovable AI Gateway.
+import type { LanguageId, VoiceTypeId } from "./story-config";
+
+const GATEWAY = "https://ai.gateway.lovable.dev/v1";
+
+function apiKey(): string {
+  const key = process.env["LOVABLE_API_KEY"];
+  if (!key) throw new Error("AI is not configured yet.");
+  return key;
+}
+
+function gatewayError(status: number, body: string): Error {
+  let message = body;
+  try {
+    const parsed = JSON.parse(body);
+    message = parsed?.message ?? parsed?.error?.message ?? body;
+  } catch {
+    /* keep raw body */
+  }
+  if (status === 429) {
+    return new Error("The story machine is busy right now. Please try again in a moment.");
+  }
+  if (status === 402) {
+    return new Error(`Out of AI credits: ${message}`);
+  }
+  return new Error(`AI request failed (${status}): ${message}`);
+}
+
+/** Chat completion that must return JSON. */
+export async function chatJson<T>(params: {
+  system: string;
+  user: string;
+  maxTokens?: number;
+}): Promise<T> {
+  const res = await fetch(`${GATEWAY}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3.8-flash",
+      messages: [
+        { role: "system", content: params.system },
+        { role: "user", content: params.user },
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: params.maxTokens ?? 8000,
+    }),
+  });
+
+  if (!res.ok) throw gatewayError(res.status, await res.text().catch(() => ""));
+
+  const payload = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+  };
+  const text = payload.choices?.[0]?.message?.content ?? "";
+  return parseJson<T>(text);
+}
+
+function parseJson<T>(text: string): T {
+  const cleaned = text
+    .trim()
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/, "")
+    .trim();
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+      return JSON.parse(cleaned.slice(start, end + 1)) as T;
+    }
+    throw new Error("The story writer returned something unreadable. Please try again.");
+  }
+}
+
+/** Generates one illustration and returns raw PNG bytes. */
+export async function generateImage(prompt: string): Promise<Uint8Array> {
+  const res = await fetch(`${GATEWAY}/images/generations`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3.1-flash-image",
+      prompt,
+      n: 1,
+    }),
+  });
+
+  if (!res.ok) throw gatewayError(res.status, await res.text().catch(() => ""));
+
+  const payload = (await res.json()) as { data?: { b64_json?: string }[] };
+  const b64 = payload.data?.[0]?.b64_json;
+  if (!b64) throw new Error("No picture came back. Please try again.");
+  return base64ToBytes(b64);
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+type VoicePreset = {
+  provider: "openai" | "google";
+  voice: string;
+  instructions: string;
+  mime: string;
+  extension: string;
+};
+
+const ENGLISH_STYLE =
+  "Narrate as a warm Indian English storyteller for young children. Gentle, unhurried pace, clear diction, friendly Indian accent. Never sound scary.";
+const TAMIL_STYLE =
+  "Read this Tamil story aloud like a friendly Coimbatore storyteller talking to small children. Everyday spoken Kongu Tamil rhythm, warm, unhurried and never scary.";
+
+export function voicePreset(language: LanguageId, voiceType: VoiceTypeId): VoicePreset {
+  if (language === "ta_CBE") {
+    const voice =
+      voiceType === "male" ? "Charon" : voiceType === "kid" ? "Leda" : "Kore";
+    const extra =
+      voiceType === "kid"
+        ? " Sound like a bright, playful young child telling the story."
+        : voiceType === "male"
+          ? " Sound like a kind uncle with a deeper voice."
+          : " Sound like a kind aunty with a warm voice.";
+    return {
+      provider: "google",
+      voice,
+      instructions: TAMIL_STYLE + extra,
+      mime: "audio/wav",
+      extension: "wav",
+    };
+  }
+
+  const voice = voiceType === "male" ? "ash" : voiceType === "kid" ? "nova" : "coral";
+  const extra =
+    voiceType === "kid"
+      ? " Use a bright, light, young-sounding voice, as if a cheerful child is telling the story."
+      : voiceType === "male"
+        ? " Use a deeper, calm grown-up male voice."
+        : " Use a warm, bright grown-up female voice.";
+  return {
+    provider: "openai",
+    voice,
+    instructions: ENGLISH_STYLE + extra,
+    mime: "audio/mpeg",
+    extension: "mp3",
+  };
+}
+
+/** Generates narration audio and returns the raw audio bytes plus its mime type. */
+export async function generateSpeech(
+  text: string,
+  language: LanguageId,
+  voiceType: VoiceTypeId,
+): Promise<{ bytes: Uint8Array; mime: string; extension: string }> {
+  const preset = voicePreset(language, voiceType);
+
+  const body =
+    preset.provider === "google"
+      ? {
+          model: "google/gemini-2.5-pro-tts",
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: `${preset.instructions}\n\n${text}` }],
+            },
+          ],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: { prebuiltVoiceConfig: { voiceName: preset.voice } },
+            },
+          },
+        }
+      : {
+          model: "openai/gpt-4o-mini-tts",
+          input: text,
+          voice: preset.voice,
+          instructions: preset.instructions,
+          response_format: "mp3",
+        };
+
+  const res = await fetch(`${GATEWAY}/audio/speech`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) throw gatewayError(res.status, await res.text().catch(() => ""));
+
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.byteLength < 256) throw new Error("The narration came back empty. Please try again.");
+  return { bytes, mime: preset.mime, extension: preset.extension };
+}
