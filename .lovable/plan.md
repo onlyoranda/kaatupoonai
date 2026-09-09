@@ -52,7 +52,7 @@ Characters and settings are described once at the start of each story ("a round-
 
 ## Build order
 
-1. Home page: idea box, style picker, length and age controls.
+1. Home page: idea box, style picker, narrator language and voice picker, length and age controls.
 2. Story generation: script split into scenes, each with narration text, image description, and sound notes.
 3. Scene illustrations in the chosen 90s style.
 4. Narration audio per scene.
