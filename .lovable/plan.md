@@ -19,9 +19,22 @@ Result: a full-length 12-15 minute cartoon story that stays affordable and keeps
 
 1. Types an idea ("a shy dragon who is afraid of fireworks").
 2. Picks a cartoon style: 90s Saturday-morning 2D, 90s anime, 90s claymation-look, or 90s comic-book.
-3. Picks a length (short ~5 min / full ~12-15 min) and an age band, so the tone stays gentle and child-safe.
-4. Presses Create. A progress panel shows each step: writing the story, casting the characters, drawing scenes, recording narration, assembling.
-5. Watches the finished story in a player with chapter markers, and downloads it.
+3. Picks a narrator: Indian English or Coimbatore Tamil, and a male, female, or child voice.
+4. Picks a length (short ~5 min / full ~12-15 min) and an age band, so the tone stays gentle and child-safe.
+5. Presses Create. A progress panel shows each step: writing the story, casting the characters, drawing scenes, recording narration, assembling.
+6. Watches the finished story in a player with chapter markers, and downloads it.
+
+## Narration voices
+
+Two language flavours, each with three voice types:
+
+- Indian English — male, female, child.
+- Coimbatore Tamil — male, female, child. The story text itself is written in Tamil with everyday Kongu/Coimbatore phrasing (not formal literary Tamil), so the narration sounds local rather than textbook.
+
+The voice choice is set once per story and stays the same across every scene. A short sample can be previewed before generating the full story, so nobody waits 15 minutes to find out the voice was wrong.
+
+Note: the child voice is an adult voice steered to sound young and bright, not an actual child recording. If it doesn't feel convincing enough, the alternative is a higher-pitched female voice presented as the "young narrator".
+
 
 ## Safety
 
@@ -39,7 +52,7 @@ Characters and settings are described once at the start of each story ("a round-
 
 ## Build order
 
-1. Home page: idea box, style picker, length and age controls.
+1. Home page: idea box, style picker, narrator language and voice picker, length and age controls.
 2. Story generation: script split into scenes, each with narration text, image description, and sound notes.
 3. Scene illustrations in the chosen 90s style.
 4. Narration audio per scene.
@@ -53,7 +66,7 @@ Characters and settings are described once at the start of each story ("a round-
 - Lovable Cloud provides the login, the story/scene database, and storage for images, audio and finished videos. All records owner-scoped with RLS; media in a private bucket served via signed URLs.
 - Story script: Lovable AI Gateway chat model returning a strict scene schema (narration, image prompt, sound cue, duration estimate).
 - Images: AI Gateway image generation, one per scene, shared character/style prefix in every prompt.
-- Narration: AI Gateway text-to-speech per scene, stored as audio files.
+- Narration: AI Gateway text-to-speech (`openai/gpt-4o-mini-tts`) per scene, stored as audio files. Voice character comes from a per-option preset combining a base voice with `instructions` steering (Indian English accent / Coimbatore Tamil delivery, and adult-male / adult-female / bright-young timbre). Tamil stories have their narration text generated in Tamil script by the story model. If OpenAI's Tamil delivery is weak, the Tamil presets fall back to `google/gemini-2.5-pro-tts`, which is stronger on Indic languages; long scene text is chunked at sentence boundaries.
 - Highlight clips: AI Gateway video generation (`google/gemini-omni-1.1-flash`), a small fixed number per story, created sequentially and stored immediately (gateway URLs expire).
 - Generation runs as a job: each stage is a server function, the client polls and renders progress, and partial results are saved so a story resumes rather than restarting.
 - Playback is a timeline in the browser (images + motion + audio). The downloadable single file is rendered in-browser from that same timeline.
