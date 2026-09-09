@@ -19,9 +19,22 @@ Result: a full-length 12-15 minute cartoon story that stays affordable and keeps
 
 1. Types an idea ("a shy dragon who is afraid of fireworks").
 2. Picks a cartoon style: 90s Saturday-morning 2D, 90s anime, 90s claymation-look, or 90s comic-book.
-3. Picks a length (short ~5 min / full ~12-15 min) and an age band, so the tone stays gentle and child-safe.
-4. Presses Create. A progress panel shows each step: writing the story, casting the characters, drawing scenes, recording narration, assembling.
-5. Watches the finished story in a player with chapter markers, and downloads it.
+3. Picks a narrator: Indian English or Coimbatore Tamil, and a male, female, or child voice.
+4. Picks a length (short ~5 min / full ~12-15 min) and an age band, so the tone stays gentle and child-safe.
+5. Presses Create. A progress panel shows each step: writing the story, casting the characters, drawing scenes, recording narration, assembling.
+6. Watches the finished story in a player with chapter markers, and downloads it.
+
+## Narration voices
+
+Two language flavours, each with three voice types:
+
+- Indian English — male, female, child.
+- Coimbatore Tamil — male, female, child. The story text itself is written in Tamil with everyday Kongu/Coimbatore phrasing (not formal literary Tamil), so the narration sounds local rather than textbook.
+
+The voice choice is set once per story and stays the same across every scene. A short sample can be previewed before generating the full story, so nobody waits 15 minutes to find out the voice was wrong.
+
+Note: the child voice is an adult voice steered to sound young and bright, not an actual child recording. If it doesn't feel convincing enough, the alternative is a higher-pitched female voice presented as the "young narrator".
+
 
 ## Safety
 
