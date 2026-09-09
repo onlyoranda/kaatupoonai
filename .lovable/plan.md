@@ -66,7 +66,7 @@ Characters and settings are described once at the start of each story ("a round-
 - Lovable Cloud provides the login, the story/scene database, and storage for images, audio and finished videos. All records owner-scoped with RLS; media in a private bucket served via signed URLs.
 - Story script: Lovable AI Gateway chat model returning a strict scene schema (narration, image prompt, sound cue, duration estimate).
 - Images: AI Gateway image generation, one per scene, shared character/style prefix in every prompt.
-- Narration: AI Gateway text-to-speech per scene, stored as audio files.
+- Narration: AI Gateway text-to-speech (`openai/gpt-4o-mini-tts`) per scene, stored as audio files. Voice character comes from a per-option preset combining a base voice with `instructions` steering (Indian English accent / Coimbatore Tamil delivery, and adult-male / adult-female / bright-young timbre). Tamil stories have their narration text generated in Tamil script by the story model. If OpenAI's Tamil delivery is weak, the Tamil presets fall back to `google/gemini-2.5-pro-tts`, which is stronger on Indic languages; long scene text is chunked at sentence boundaries.
 - Highlight clips: AI Gateway video generation (`google/gemini-omni-1.1-flash`), a small fixed number per story, created sequentially and stored immediately (gateway URLs expire).
 - Generation runs as a job: each stage is a server function, the client polls and renders progress, and partial results are saved so a story resumes rather than restarting.
 - Playback is a timeline in the browser (images + motion + audio). The downloadable single file is rendered in-browser from that same timeline.
