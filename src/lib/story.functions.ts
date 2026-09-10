@@ -161,9 +161,17 @@ Return JSON { "scenes": [ { "idx": number, "narration": string, "image": string,
       }.
 - image = an English illustration description of this exact moment, repeating the characters' fixed visual details.
 - sound = a few words naming gentle ambience for the scene.`,
-      maxTokens: 6000,
-    });
+        maxTokens: 16000,
+      });
 
+    let out: ScriptOut;
+    try {
+      out = await ask();
+    } catch {
+      out = await ask();
+    }
+
+    let updated = 0;
     for (const s of out.scenes ?? []) {
       const row = scenes.find((x) => x.idx === s.idx);
       if (!row) continue;
