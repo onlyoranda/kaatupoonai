@@ -42,6 +42,8 @@ function StoryPage() {
   const script = useServerFn(scriptBatch);
   const render = useServerFn(renderScene);
   const fail = useServerFn(markFailed);
+  const resume = useServerFn(resumeStory);
+
 
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState("scripting");
