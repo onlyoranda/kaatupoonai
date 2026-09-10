@@ -13,7 +13,7 @@ import {
 } from "./story-config";
 
 const BUCKET = "story-media";
-const BATCH = 6;
+const BATCH = 3;
 
 type StartInput = {
   idea: string;
@@ -141,11 +141,13 @@ export const scriptBatch = createServerFn({ method: "POST" })
     const age = ageOf(story.age_band);
     const tamil = story.narration_language === "ta_CBE";
 
-    const out = await chatJson<{
+    type ScriptOut = {
       scenes: { idx: number; narration: string; image: string; sound: string }[];
-    }>({
-      system: `${SAFETY} You reply only with JSON.`,
-      user: `Story title: ${story.title}
+    };
+    const ask = () =>
+      chatJson<ScriptOut>({
+        system: `${SAFETY} You reply only with JSON.`,
+        user: `Story title: ${story.title}
 Cast and world (keep every detail identical): ${story.character_bible}
 Audience: ${age.label} — ${age.blurb}.
 Expand these beats into scenes:
@@ -159,12 +161,21 @@ Return JSON { "scenes": [ { "idx": number, "narration": string, "image": string,
       }.
 - image = an English illustration description of this exact moment, repeating the characters' fixed visual details.
 - sound = a few words naming gentle ambience for the scene.`,
-      maxTokens: 6000,
-    });
+        maxTokens: 16000,
+      });
 
+    let out: ScriptOut;
+    try {
+      out = await ask();
+    } catch {
+      out = await ask();
+    }
+
+    let updated = 0;
     for (const s of out.scenes ?? []) {
       const row = scenes.find((x) => x.idx === s.idx);
-      if (!row) continue;
+      if (!row || !s.narration || !s.image) continue;
+      updated++;
       await supabase
         .from("scenes")
         .update({
@@ -177,12 +188,22 @@ Return JSON { "scenes": [ { "idx": number, "narration": string, "image": string,
         .eq("id", row.id);
     }
 
-    const next = data.from + BATCH;
-    const finished = next >= story.scene_count;
+    if (updated === 0) {
+      throw new Error("The story writer could not finish these scenes. Please try again.");
+    }
+
+    // Any beats left (including ones a partial reply skipped) get another pass.
+    const { count } = await supabase
+      .from("scenes")
+      .select("id", { count: "exact", head: true })
+      .eq("story_id", data.storyId)
+      .eq("status", "beat");
+
+    const finished = (count ?? 0) === 0;
     if (finished) {
       await supabase.from("stories").update({ status: "illustrating" }).eq("id", story.id);
     }
-    return { done: finished, next: finished ? null : next };
+    return { done: finished, next: finished ? null : data.from };
   });
 
 /** Step 3: draw + narrate a single scene. */
@@ -254,6 +275,28 @@ export const markFailed = createServerFn({ method: "POST" })
     await context.supabase
       .from("stories")
       .update({ status: "failed", error_message: data.message.slice(0, 500) })
+      .eq("id", data.storyId);
+    return { ok: true };
+  });
+
+/** Clears a failure so the client loop can carry on from where it stopped. */
+export const resumeStory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { storyId: string }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { count } = await supabase
+      .from("scenes")
+      .select("id", { count: "exact", head: true })
+      .eq("story_id", data.storyId)
+      .eq("status", "beat");
+
+    await supabase
+      .from("stories")
+      .update({
+        status: (count ?? 0) > 0 ? "scripting" : "illustrating",
+        error_message: null,
+      })
       .eq("id", data.storyId);
     return { ok: true };
   });

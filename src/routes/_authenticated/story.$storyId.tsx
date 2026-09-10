@@ -7,6 +7,7 @@ import {
   scriptBatch,
   renderScene,
   markFailed,
+  resumeStory,
 } from "@/lib/story.functions";
 import { STATUS_LABELS } from "@/lib/story-config";
 import { Button } from "@/components/ui/button";
@@ -41,11 +42,15 @@ function StoryPage() {
   const script = useServerFn(scriptBatch);
   const render = useServerFn(renderScene);
   const fail = useServerFn(markFailed);
+  const resume = useServerFn(resumeStory);
+
 
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState("scripting");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
+  const [attempt, setAttempt] = useState(0);
+  const [retrying, setRetrying] = useState(false);
   const running = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -68,10 +73,17 @@ function StoryPage() {
         if (res.story.status === "ready" || res.story.status === "failed") return;
 
         // 1. Expand every beat into narration + picture prompts.
+        let stalled = 0;
         while (!cancelled && res.scenes.some((s) => s.status === "beat")) {
+          const before = res.scenes.filter((s) => s.status === "beat").length;
           const from = res.scenes.find((s) => s.status === "beat")!.idx;
           await script({ data: { storyId, from } });
           res = await refresh();
+          const after = res.scenes.filter((s) => s.status === "beat").length;
+          stalled = after < before ? 0 : stalled + 1;
+          if (stalled >= 2) {
+            throw new Error("The story writer got stuck on a scene. Please try again.");
+          }
         }
 
         // 2. Draw and narrate each scene in order.
@@ -97,7 +109,20 @@ function StoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [storyId, refresh, script, render, fail]);
+  }, [storyId, refresh, script, render, fail, attempt]);
+
+  async function tryAgain() {
+    setRetrying(true);
+    try {
+      await resume({ data: { storyId } });
+      await refresh();
+      setAttempt((n) => n + 1);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not restart.");
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   const ready = scenes.filter((s) => s.status === "ready").length;
   const total = scenes.length || 1;
@@ -122,8 +147,12 @@ function StoryPage() {
       {status === "failed" ? (
         <div className="ink rounded-2xl bg-card p-6">
           <p className="text-sm">{errorMessage ?? "Something went wrong."}</p>
-          <Button className="ink mt-4" onClick={() => window.location.reload()}>
-            Try again
+          <p className="mt-2 text-sm text-muted-foreground">
+            Nothing is lost — the finished scenes are saved, so this carries on from where it
+            stopped.
+          </p>
+          <Button className="ink mt-4" onClick={tryAgain} disabled={retrying}>
+            {retrying ? "Picking up again…" : "Try again"}
           </Button>
         </div>
       ) : isReady ? (
