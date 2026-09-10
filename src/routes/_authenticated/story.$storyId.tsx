@@ -109,7 +109,20 @@ function StoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [storyId, refresh, script, render, fail]);
+  }, [storyId, refresh, script, render, fail, attempt]);
+
+  async function tryAgain() {
+    setRetrying(true);
+    try {
+      await resume({ data: { storyId } });
+      await refresh();
+      setAttempt((n) => n + 1);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not restart.");
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   const ready = scenes.filter((s) => s.status === "ready").length;
   const total = scenes.length || 1;
