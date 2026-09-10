@@ -13,7 +13,7 @@ import {
 } from "./story-config";
 
 const BUCKET = "story-media";
-const BATCH = 6;
+const BATCH = 3;
 
 type StartInput = {
   idea: string;
@@ -141,11 +141,13 @@ export const scriptBatch = createServerFn({ method: "POST" })
     const age = ageOf(story.age_band);
     const tamil = story.narration_language === "ta_CBE";
 
-    const out = await chatJson<{
+    type ScriptOut = {
       scenes: { idx: number; narration: string; image: string; sound: string }[];
-    }>({
-      system: `${SAFETY} You reply only with JSON.`,
-      user: `Story title: ${story.title}
+    };
+    const ask = () =>
+      chatJson<ScriptOut>({
+        system: `${SAFETY} You reply only with JSON.`,
+        user: `Story title: ${story.title}
 Cast and world (keep every detail identical): ${story.character_bible}
 Audience: ${age.label} — ${age.blurb}.
 Expand these beats into scenes:
