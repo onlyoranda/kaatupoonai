@@ -73,10 +73,17 @@ function StoryPage() {
         if (res.story.status === "ready" || res.story.status === "failed") return;
 
         // 1. Expand every beat into narration + picture prompts.
+        let stalled = 0;
         while (!cancelled && res.scenes.some((s) => s.status === "beat")) {
+          const before = res.scenes.filter((s) => s.status === "beat").length;
           const from = res.scenes.find((s) => s.status === "beat")!.idx;
           await script({ data: { storyId, from } });
           res = await refresh();
+          const after = res.scenes.filter((s) => s.status === "beat").length;
+          stalled = after < before ? 0 : stalled + 1;
+          if (stalled >= 2) {
+            throw new Error("The story writer got stuck on a scene. Please try again.");
+          }
         }
 
         // 2. Draw and narrate each scene in order.
