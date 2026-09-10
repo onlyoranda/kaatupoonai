@@ -147,8 +147,12 @@ function StoryPage() {
       {status === "failed" ? (
         <div className="ink rounded-2xl bg-card p-6">
           <p className="text-sm">{errorMessage ?? "Something went wrong."}</p>
-          <Button className="ink mt-4" onClick={() => window.location.reload()}>
-            Try again
+          <p className="mt-2 text-sm text-muted-foreground">
+            Nothing is lost — the finished scenes are saved, so this carries on from where it
+            stopped.
+          </p>
+          <Button className="ink mt-4" onClick={tryAgain} disabled={retrying}>
+            {retrying ? "Picking up again…" : "Try again"}
           </Button>
         </div>
       ) : isReady ? (
