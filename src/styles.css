@@ -161,3 +161,8 @@
   box-shadow: 4px 4px 0 var(--color-border);
 }
 
+
+@keyframes kenburns {
+  from { transform: scale(1) translate3d(0, 0, 0); }
+  to { transform: scale(1.12) translate3d(-2%, -2%, 0); }
+}
