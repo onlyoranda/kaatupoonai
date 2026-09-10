@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,18 +73,7 @@ function AuthPage() {
           Your stories stay private to you.
         </p>
 
-        <Button
-          type="button"
-          variant="secondary"
-          className="ink mt-6 w-full"
-          onClick={() =>
-            lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin })
-          }
-        >
-          Continue with Google
-        </Button>
 
-        <div className="my-5 text-center text-xs text-muted-foreground">or use email</div>
 
         <form onSubmit={submit} className="space-y-4">
           <div>
