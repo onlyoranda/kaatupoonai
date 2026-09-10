@@ -45,7 +45,7 @@ export async function chatJson<T>(params: {
         { role: "user", content: params.user },
       ],
       response_format: { type: "json_object" },
-      max_tokens: params.maxTokens ?? 8000,
+      max_tokens: params.maxTokens ?? 16000,
     }),
   });
 
@@ -67,13 +67,90 @@ function parseJson<T>(text: string): T {
   try {
     return JSON.parse(cleaned) as T;
   } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start !== -1 && end > start) {
-      return JSON.parse(cleaned.slice(start, end + 1)) as T;
-    }
-    throw new Error("The story writer returned something unreadable. Please try again.");
+    /* try repairs below */
   }
+
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start !== -1 && end > start) {
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1)) as T;
+    } catch {
+      /* try truncation repair below */
+    }
+  }
+
+  const repaired = repairTruncatedJson(cleaned);
+  if (repaired !== null) {
+    try {
+      return JSON.parse(repaired) as T;
+    } catch {
+      /* fall through */
+    }
+  }
+
+  throw new Error("The story writer returned something unreadable. Please try again.");
+}
+
+/**
+ * Salvages a reply that was cut off mid-way: keeps everything up to the last
+ * complete array element / object property and closes the open brackets.
+ */
+function repairTruncatedJson(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  const src = text.slice(start);
+
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+  let lastSafe = -1;
+
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i]!;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === "{" || ch === "[") {
+      stack.push(ch);
+    } else if (ch === "}" || ch === "]") {
+      stack.pop();
+      if (stack.length > 0) lastSafe = i;
+    } else if (ch === "," && stack.length > 0) {
+      lastSafe = i - 1;
+    }
+  }
+
+  if (lastSafe < 0) return null;
+
+  // Rebuild the bracket stack for the truncated prefix.
+  const prefix = src.slice(0, lastSafe + 1);
+  const open: string[] = [];
+  inString = false;
+  escaped = false;
+  for (let i = 0; i < prefix.length; i++) {
+    const ch = prefix[i]!;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{" || ch === "[") open.push(ch);
+    else if (ch === "}" || ch === "]") open.pop();
+  }
+
+  const closing = open
+    .reverse()
+    .map((c) => (c === "{" ? "}" : "]"))
+    .join("");
+  return prefix + closing;
 }
 
 /** Generates one illustration and returns raw PNG bytes. */
