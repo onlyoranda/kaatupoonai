@@ -96,7 +96,7 @@ function parseJson<T>(text: string): T {
  * Salvages a reply that was cut off mid-way: keeps everything up to the last
  * complete array element / object property and closes the open brackets.
  */
-function repairTruncatedJson(text: string): string | null {
+export function repairTruncatedJson(text: string): string | null {
   const start = text.indexOf("{");
   if (start === -1) return null;
   const src = text.slice(start);
