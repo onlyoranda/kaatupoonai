@@ -279,6 +279,28 @@ export const markFailed = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Clears a failure so the client loop can carry on from where it stopped. */
+export const resumeStory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { storyId: string }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { count } = await supabase
+      .from("scenes")
+      .select("id", { count: "exact", head: true })
+      .eq("story_id", data.storyId)
+      .eq("status", "beat");
+
+    await supabase
+      .from("stories")
+      .update({
+        status: (count ?? 0) > 0 ? "scripting" : "illustrating",
+        error_message: null,
+      })
+      .eq("id", data.storyId);
+    return { ok: true };
+  });
+
 export const getStory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { storyId: string }) => input)
