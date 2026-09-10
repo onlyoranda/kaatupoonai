@@ -7,6 +7,7 @@ import {
   scriptBatch,
   renderScene,
   markFailed,
+  resumeStory,
 } from "@/lib/story.functions";
 import { STATUS_LABELS } from "@/lib/story-config";
 import { Button } from "@/components/ui/button";
