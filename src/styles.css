@@ -140,5 +140,24 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: "Baloo 2", system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at 12% 18%, oklch(0.87 0.11 195 / 0.35) 0 22%, transparent 23%),
+      radial-gradient(circle at 88% 8%, oklch(0.86 0.16 85 / 0.4) 0 18%, transparent 19%);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: "Bungee", "Baloo 2", system-ui, sans-serif;
+    letter-spacing: 0.01em;
   }
 }
+
+@utility ink {
+  border: 3px solid var(--color-border);
+  box-shadow: 4px 4px 0 var(--color-border);
+}
+
