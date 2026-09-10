@@ -49,6 +49,8 @@ function StoryPage() {
   const [status, setStatus] = useState("scripting");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
+  const [attempt, setAttempt] = useState(0);
+  const [retrying, setRetrying] = useState(false);
   const running = useRef(false);
 
   const refresh = useCallback(async () => {
