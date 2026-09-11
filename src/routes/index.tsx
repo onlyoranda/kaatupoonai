@@ -57,14 +57,13 @@ function Choice({
       type="button"
       onClick={onClick}
       className={cn(
-        "ink rounded-xl px-4 py-3 text-left transition-transform",
-        active
-          ? "-translate-y-0.5 bg-primary text-primary-foreground"
-          : "bg-card hover:-translate-y-0.5",
+        "ink tilt rounded-2xl px-4 py-3 text-left",
+        active ? "-translate-y-0.5 rotate-[-1deg] bg-primary text-primary-foreground" : "bg-card",
       )}
     >
       <div className="font-display text-sm">{label}</div>
       {blurb ? <div className="text-xs opacity-80">{blurb}</div> : null}
+
     </button>
   );
 }
