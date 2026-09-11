@@ -57,14 +57,13 @@ function Choice({
       type="button"
       onClick={onClick}
       className={cn(
-        "ink rounded-xl px-4 py-3 text-left transition-transform",
-        active
-          ? "-translate-y-0.5 bg-primary text-primary-foreground"
-          : "bg-card hover:-translate-y-0.5",
+        "ink tilt rounded-2xl px-4 py-3 text-left",
+        active ? "-translate-y-0.5 rotate-[-1deg] bg-primary text-primary-foreground" : "bg-card",
       )}
     >
       <div className="font-display text-sm">{label}</div>
       {blurb ? <div className="text-xs opacity-80">{blurb}</div> : null}
+
     </button>
   );
 }
@@ -113,11 +112,21 @@ function Home() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-5 py-10">
+    <main className="relative mx-auto max-w-4xl px-5 py-10">
+      <span className="confetti right-[6%] top-[6%] hidden h-10 w-10 bg-secondary sm:block" />
+      <span
+        className="confetti left-[3%] top-[38%] hidden h-6 w-6 bg-accent sm:block"
+        style={{ animationDelay: "1.5s" }}
+      />
+      <span
+        className="confetti bottom-[8%] right-[8%] hidden h-8 w-8 bg-primary/40 sm:block"
+        style={{ animationDelay: "2.4s" }}
+      />
+
       <header className="mb-10 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl leading-tight sm:text-4xl">Cartoon Story Maker</h1>
-          <p className="mt-2 max-w-xl text-muted-foreground">
+          <h1 className="wavy text-3xl leading-tight sm:text-4xl">Cartoon Story Maker</h1>
+          <p className="mt-3 max-w-xl text-muted-foreground">
             Type an idea. Get a hand-drawn 90s cartoon story, read aloud for your little one.
           </p>
         </div>
@@ -125,17 +134,17 @@ function Home() {
           {!loading && user ? (
             <>
               <Link to="/library">
-                <Button variant="secondary" className="ink">
+                <Button variant="secondary" className="ink rounded-full">
                   My stories
                 </Button>
               </Link>
-              <Button variant="ghost" onClick={() => signOut()}>
+              <Button variant="ghost" className="rounded-full" onClick={() => signOut()}>
                 Sign out
               </Button>
             </>
           ) : (
             <Link to="/auth">
-              <Button variant="secondary" className="ink">
+              <Button variant="secondary" className="ink rounded-full">
                 Sign in
               </Button>
             </Link>
@@ -143,7 +152,8 @@ function Home() {
         </div>
       </header>
 
-      <section className="ink rounded-2xl bg-card p-6">
+      <section className="ink relative rounded-3xl bg-card p-6 sm:p-8">
+
         <label htmlFor="idea" className="font-display text-sm">
           What should the story be about?
         </label>
@@ -244,9 +254,14 @@ function Home() {
           A short story takes a few minutes to make; a full story takes longer. Keep this page open
           while it's being made.
         </p>
-        <Button className="ink mt-3 w-full py-6 text-lg" onClick={create} disabled={busy}>
-          {busy ? "Writing the story…" : "Create my cartoon story"}
+        <Button
+          className="ink mt-3 w-full rounded-full py-7 text-lg"
+          onClick={create}
+          disabled={busy}
+        >
+          {busy ? "Writing the story…" : "Create my cartoon story ✨"}
         </Button>
+
       </section>
     </main>
   );
