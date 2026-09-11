@@ -8,12 +8,10 @@ import {
   ART_STYLES,
   LANGUAGES,
   VOICE_TYPES,
-  LENGTHS,
   AGE_BANDS,
   type AgeBandId,
   type ArtStyleId,
   type LanguageId,
-  type LengthId,
   type VoiceTypeId,
 } from "@/lib/story-config";
 import { Button } from "@/components/ui/button";
@@ -78,7 +76,7 @@ function Home() {
   const [artStyle, setArtStyle] = useState<ArtStyleId>("saturday_2d");
   const [language, setLanguage] = useState<LanguageId>("en_IN");
   const [voiceType, setVoiceType] = useState<VoiceTypeId>("female");
-  const [length, setLength] = useState<LengthId>("short");
+  const length = "short" as const;
   const [ageBand, setAgeBand] = useState<AgeBandId>("4_7");
   const [busy, setBusy] = useState(false);
   const [previewing, setPreviewing] = useState(false);
@@ -220,21 +218,6 @@ function Home() {
           </div>
 
           <div>
-            <h2 className="mb-3 text-base">How long?</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {LENGTHS.map((l) => (
-                <Choice
-                  key={l.id}
-                  active={length === l.id}
-                  onClick={() => setLength(l.id)}
-                  label={l.label}
-                  blurb={l.blurb}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div>
             <h2 className="mb-3 text-base">Who's listening?</h2>
             <div className="grid gap-3 sm:grid-cols-3">
               {AGE_BANDS.map((a) => (
@@ -251,8 +234,7 @@ function Home() {
         </div>
 
         <p className="mt-8 text-sm text-muted-foreground">
-          A short story takes a few minutes to make; a full story takes longer. Keep this page open
-          while it's being made.
+          Your story takes a few minutes to make. Keep this page open while it's being made.
         </p>
         <Button
           className="ink mt-3 w-full rounded-full py-7 text-lg"

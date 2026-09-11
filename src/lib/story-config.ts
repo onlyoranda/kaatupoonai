@@ -3,7 +3,7 @@
 export type ArtStyleId = "saturday_2d" | "anime_90s" | "clay_90s" | "comic_90s";
 export type LanguageId = "en_IN" | "ta_CBE";
 export type VoiceTypeId = "male" | "female" | "kid";
-export type LengthId = "short" | "full";
+export type LengthId = "short";
 export type AgeBandId = "3_5" | "4_7" | "8_11";
 
 export const ART_STYLES: {
@@ -78,13 +78,6 @@ export const LENGTHS: {
     blurb: "About 5 minutes",
     scenes: 20,
     wordsPerScene: 38,
-  },
-  {
-    id: "full",
-    label: "Full story",
-    blurb: "About 12-15 minutes",
-    scenes: 46,
-    wordsPerScene: 46,
   },
 ];
 
