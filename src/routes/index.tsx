@@ -112,11 +112,21 @@ function Home() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-5 py-10">
+    <main className="relative mx-auto max-w-4xl px-5 py-10">
+      <span className="confetti right-[6%] top-[6%] hidden h-10 w-10 bg-secondary sm:block" />
+      <span
+        className="confetti left-[3%] top-[38%] hidden h-6 w-6 bg-accent sm:block"
+        style={{ animationDelay: "1.5s" }}
+      />
+      <span
+        className="confetti bottom-[8%] right-[8%] hidden h-8 w-8 bg-primary/40 sm:block"
+        style={{ animationDelay: "2.4s" }}
+      />
+
       <header className="mb-10 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl leading-tight sm:text-4xl">Cartoon Story Maker</h1>
-          <p className="mt-2 max-w-xl text-muted-foreground">
+          <h1 className="wavy text-3xl leading-tight sm:text-4xl">Cartoon Story Maker</h1>
+          <p className="mt-3 max-w-xl text-muted-foreground">
             Type an idea. Get a hand-drawn 90s cartoon story, read aloud for your little one.
           </p>
         </div>
@@ -124,17 +134,17 @@ function Home() {
           {!loading && user ? (
             <>
               <Link to="/library">
-                <Button variant="secondary" className="ink">
+                <Button variant="secondary" className="ink rounded-full">
                   My stories
                 </Button>
               </Link>
-              <Button variant="ghost" onClick={() => signOut()}>
+              <Button variant="ghost" className="rounded-full" onClick={() => signOut()}>
                 Sign out
               </Button>
             </>
           ) : (
             <Link to="/auth">
-              <Button variant="secondary" className="ink">
+              <Button variant="secondary" className="ink rounded-full">
                 Sign in
               </Button>
             </Link>
@@ -142,7 +152,8 @@ function Home() {
         </div>
       </header>
 
-      <section className="ink rounded-2xl bg-card p-6">
+      <section className="ink relative rounded-3xl bg-card p-6 sm:p-8">
+
         <label htmlFor="idea" className="font-display text-sm">
           What should the story be about?
         </label>
