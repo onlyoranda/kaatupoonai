@@ -36,25 +36,26 @@ function Library() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-10">
       <header className="mb-8 flex items-center justify-between gap-4">
-        <h1 className="text-3xl">My stories</h1>
+        <h1 className="wavy text-3xl">My stories</h1>
         <Link to="/">
-          <Button className="ink">New story</Button>
+          <Button className="ink rounded-full">New story</Button>
         </Link>
       </header>
 
       {isLoading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : !data || data.length === 0 ? (
-        <div className="ink rounded-2xl bg-card p-8 text-center">
+        <div className="ink rounded-3xl bg-card p-8 text-center">
           <p className="text-muted-foreground">You haven't made a story yet.</p>
           <Link to="/">
-            <Button className="ink mt-4">Make your first one</Button>
+            <Button className="ink mt-4 rounded-full">Make your first one</Button>
           </Link>
         </div>
       ) : (
         <ul className="space-y-3">
           {data.map((s) => (
-            <li key={s.id} className="ink flex items-center gap-4 rounded-2xl bg-card p-4">
+            <li key={s.id} className="ink tilt flex items-center gap-4 rounded-2xl bg-card p-4">
+
               <div className="min-w-0 flex-1">
                 <Link
                   to="/story/$storyId"
