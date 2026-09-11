@@ -254,9 +254,14 @@ function Home() {
           A short story takes a few minutes to make; a full story takes longer. Keep this page open
           while it's being made.
         </p>
-        <Button className="ink mt-3 w-full py-6 text-lg" onClick={create} disabled={busy}>
-          {busy ? "Writing the story…" : "Create my cartoon story"}
+        <Button
+          className="ink mt-3 w-full rounded-full py-7 text-lg"
+          onClick={create}
+          disabled={busy}
+        >
+          {busy ? "Writing the story…" : "Create my cartoon story ✨"}
         </Button>
+
       </section>
     </main>
   );
