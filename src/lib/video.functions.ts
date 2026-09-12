@@ -17,16 +17,12 @@ export const generateVideo = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const result = await generateVideoFromPrompt(data.prompt.trim());
-
-    if (result.kind === "url") {
-      return { videoUrl: result.url };
-    }
+    const bytes = await generateVideoFromPrompt(data.prompt.trim());
 
     const path = `${userId}/${crypto.randomUUID()}.mp4`;
     const up = await supabase.storage
       .from(BUCKET)
-      .upload(path, result.bytes, { contentType: "video/mp4", upsert: true });
+      .upload(path, bytes, { contentType: "video/mp4", upsert: true });
     if (up.error) throw new Error(up.error.message);
 
     const { data: signed, error: signError } = await supabase.storage
