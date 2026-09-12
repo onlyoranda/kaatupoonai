@@ -1,6 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { chatJson, generateImage, generateSpeech } from "./ai.server";
+import type { Database } from "@/integrations/supabase/types";
+import {
+  chatJson,
+  enhanceStoryIdea,
+  generateImage,
+  generateSpeech,
+  withRetries,
+} from "./ai.server";
 import {
   ART_STYLES,
   AGE_BANDS,
@@ -14,6 +22,16 @@ import {
 
 const BUCKET = "story-media";
 const BATCH = 3;
+
+// How many times scripting/rendering may fail in a row (across both the
+// open-tab flow and the background cron sweep, whichever hits it first)
+// before a story is actually marked failed. A transient blip — the AI
+// gateway timing out, an image worker running out of memory, a dropped
+// connection — no longer takes the whole story down; it just gets picked
+// up again on the next pass.
+const MAX_STORY_ATTEMPTS = 5;
+
+type Db = SupabaseClient<Database>;
 
 type StartInput = {
   idea: string;
@@ -36,6 +54,20 @@ function ageOf(id: string) {
 
 const SAFETY =
   "You write gentle stories for small children. Absolutely no violence, weapons, death, horror, cruelty, injury, romance, or unsafe behaviour. No scary imagery. Always a warm, reassuring ending.";
+
+/** Lets a parent polish their one-line idea before starting the story. */
+export const enhanceIdea = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { idea: string }) => {
+    if (!input?.idea || input.idea.trim().length < 3) {
+      throw new Error("Write a little bit first, then I can help polish it.");
+    }
+    return input;
+  })
+  .handler(async ({ data }) => {
+    const idea = await enhanceStoryIdea(data.idea.trim());
+    return { idea };
+  });
 
 /** Step 1: safety check, title, character bible and scene beats. */
 export const startStory = createServerFn({ method: "POST" })
@@ -114,29 +146,55 @@ Return JSON:
     return { storyId: story.id as string, sceneCount: plan.beats.length };
   });
 
-/** Step 2: expand a batch of beats into narration + image prompts. */
-export const scriptBatch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: { storyId: string; from: number }) => input)
-  .handler(async ({ data, context }) => {
-    const { supabase } = context;
-    const { data: story } = await supabase
+type StepResult = { done: boolean; retrying: boolean; next?: number | null };
+
+/**
+ * Records a failed attempt on a story. If the story is still under its
+ * retry budget, the failure is swallowed and the caller is told to try
+ * again shortly; only once the budget is exhausted does the story actually
+ * get marked "failed".
+ */
+async function recordAttemptFailure(
+  supabase: Db,
+  storyId: string,
+  currentAttempts: number,
+  err: unknown,
+): Promise<StepResult> {
+  const attempts = currentAttempts + 1;
+  const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+
+  if (attempts >= MAX_STORY_ATTEMPTS) {
+    await supabase
       .from("stories")
-      .select("*")
-      .eq("id", data.storyId)
-      .single();
-    if (!story) throw new Error("Story not found.");
+      .update({ status: "failed", error_message: message.slice(0, 500), attempts })
+      .eq("id", storyId);
+    throw new Error(message);
+  }
 
-    const { data: scenes } = await supabase
-      .from("scenes")
-      .select("id, idx, narration_text")
-      .eq("story_id", data.storyId)
-      .gte("idx", data.from)
-      .lt("idx", data.from + BATCH)
-      .order("idx");
+  await supabase.from("stories").update({ attempts }).eq("id", storyId);
+  return { done: false, retrying: true };
+}
 
-    if (!scenes || scenes.length === 0) return { done: true, next: null };
+/** Step 2 core logic: expand a batch of beats into narration + image prompts. */
+export async function runScriptBatch(
+  supabase: Db,
+  storyId: string,
+  from: number,
+): Promise<StepResult> {
+  const { data: story } = await supabase.from("stories").select("*").eq("id", storyId).single();
+  if (!story) throw new Error("Story not found.");
 
+  const { data: scenes } = await supabase
+    .from("scenes")
+    .select("id, idx, narration_text")
+    .eq("story_id", storyId)
+    .gte("idx", from)
+    .lt("idx", from + BATCH)
+    .order("idx");
+
+  if (!scenes || scenes.length === 0) return { done: true, retrying: false, next: null };
+
+  try {
     const len = lengthOf(story.length_pref);
     const age = ageOf(story.age_band);
     const tamil = story.narration_language === "ta_CBE";
@@ -155,21 +213,16 @@ ${scenes.map((s) => `${s.idx}: ${s.narration_text}`).join("\n")}
 
 Return JSON { "scenes": [ { "idx": number, "narration": string, "image": string, "sound": string } ] } where:
 - narration = about ${len.wordsPerScene} words of read-aloud narration ${
-        tamil
-          ? "written in Tamil script using everyday spoken Coimbatore/Kongu Tamil, not formal literary Tamil"
-          : "in simple warm Indian English"
-      }.
+          tamil
+            ? "written in Tamil script using everyday spoken Coimbatore/Kongu Tamil, not formal literary Tamil"
+            : "in simple warm Indian English"
+        }.
 - image = an English illustration description of this exact moment, repeating the characters' fixed visual details.
 - sound = a few words naming gentle ambience for the scene.`,
         maxTokens: 16000,
       });
 
-    let out: ScriptOut;
-    try {
-      out = await ask();
-    } catch {
-      out = await ask();
-    }
+    const out = await withRetries(ask, 3);
 
     let updated = 0;
     for (const s of out.scenes ?? []) {
@@ -192,50 +245,86 @@ Return JSON { "scenes": [ { "idx": number, "narration": string, "image": string,
       throw new Error("The story writer could not finish these scenes. Please try again.");
     }
 
+    if (story.attempts) {
+      await supabase.from("stories").update({ attempts: 0 }).eq("id", story.id);
+    }
+
     // Any beats left (including ones a partial reply skipped) get another pass.
     const { count } = await supabase
       .from("scenes")
       .select("id", { count: "exact", head: true })
-      .eq("story_id", data.storyId)
+      .eq("story_id", storyId)
       .eq("status", "beat");
 
     const finished = (count ?? 0) === 0;
     if (finished) {
       await supabase.from("stories").update({ status: "illustrating" }).eq("id", story.id);
     }
-    return { done: finished, next: finished ? null : data.from };
-  });
+    return { done: finished, retrying: false, next: finished ? null : from };
+  } catch (err) {
+    return recordAttemptFailure(supabase, storyId, story.attempts ?? 0, err);
+  }
+}
 
-/** Step 3: draw + narrate a single scene. */
-export const renderScene = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: { storyId: string; idx: number }) => input)
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: story } = await supabase
+/** Sends the "your story is ready" email, once, using the service-role client. */
+async function notifyStoryReady(storyId: string, userId: string, title: string): Promise<void> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: fresh } = await supabaseAdmin
       .from("stories")
-      .select("*")
-      .eq("id", data.storyId)
+      .select("notified_at")
+      .eq("id", storyId)
       .single();
-    if (!story) throw new Error("Story not found.");
+    if (fresh?.notified_at) return; // already sent (e.g. by the cron sweep)
 
-    const { data: scene } = await supabase
-      .from("scenes")
-      .select("*")
-      .eq("story_id", data.storyId)
-      .eq("idx", data.idx)
-      .single();
-    if (!scene) throw new Error("Scene not found.");
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+    const email = authUser?.user?.email;
+    if (!email) return;
 
+    const { sendStoryReadyEmail } = await import("./email.server");
+    await sendStoryReadyEmail(email, title, storyId);
+
+    await supabaseAdmin
+      .from("stories")
+      .update({ notified_at: new Date().toISOString() })
+      .eq("id", storyId);
+  } catch (err) {
+    console.error("[email] failed to notify story ready:", err);
+  }
+}
+
+/** Step 3 core logic: draw + narrate a single scene. */
+export async function runRenderScene(
+  supabase: Db,
+  storyId: string,
+  idx: number,
+): Promise<StepResult> {
+  const { data: story } = await supabase.from("stories").select("*").eq("id", storyId).single();
+  if (!story) throw new Error("Story not found.");
+
+  const { data: scene } = await supabase
+    .from("scenes")
+    .select("*")
+    .eq("story_id", storyId)
+    .eq("idx", idx)
+    .single();
+  if (!scene) throw new Error("Scene not found.");
+
+  try {
     const style = styleOf(story.art_style);
     let imagePath = scene.image_path;
     let audioPath = scene.audio_path;
 
     if (!imagePath) {
-      const bytes = await generateImage(
-        `${style.prompt}. Wholesome children's cartoon, no text, no words, no letters. Consistent cast: ${story.character_bible}. Scene: ${scene.image_prompt}`,
+      const bytes = await withRetries(
+        () =>
+          generateImage(
+            `${style.prompt}. Wholesome children's cartoon, no text, no words, no letters. Consistent cast: ${story.character_bible}. Scene: ${scene.image_prompt}`,
+          ),
+        3,
       );
-      const path = `${userId}/${story.id}/scene-${String(data.idx).padStart(3, "0")}.png`;
+      const path = `${story.user_id}/${story.id}/scene-${String(idx).padStart(3, "0")}.png`;
       const up = await supabase.storage
         .from(BUCKET)
         .upload(path, bytes, { contentType: "image/png", upsert: true });
@@ -244,12 +333,16 @@ export const renderScene = createServerFn({ method: "POST" })
     }
 
     if (!audioPath) {
-      const speech = await generateSpeech(
-        scene.narration_text,
-        story.narration_language as LanguageId,
-        story.voice_type as VoiceTypeId,
+      const speech = await withRetries(
+        () =>
+          generateSpeech(
+            scene.narration_text,
+            story.narration_language as LanguageId,
+            story.voice_type as VoiceTypeId,
+          ),
+        3,
       );
-      const path = `${userId}/${story.id}/scene-${String(data.idx).padStart(3, "0")}.${speech.extension}`;
+      const path = `${story.user_id}/${story.id}/scene-${String(idx).padStart(3, "0")}.${speech.extension}`;
       const up = await supabase.storage
         .from(BUCKET)
         .upload(path, speech.bytes, { contentType: speech.mime, upsert: true });
@@ -262,11 +355,33 @@ export const renderScene = createServerFn({ method: "POST" })
       .update({ image_path: imagePath, audio_path: audioPath, status: "ready" })
       .eq("id", scene.id);
 
-    const last = data.idx + 1 >= story.scene_count;
-    if (last) await supabase.from("stories").update({ status: "ready" }).eq("id", story.id);
+    if (story.attempts) {
+      await supabase.from("stories").update({ attempts: 0 }).eq("id", story.id);
+    }
 
-    return { done: last };
-  });
+    const last = idx + 1 >= story.scene_count;
+    if (last) {
+      await supabase.from("stories").update({ status: "ready" }).eq("id", story.id);
+      await notifyStoryReady(story.id, story.user_id, story.title);
+    }
+
+    return { done: last, retrying: false };
+  } catch (err) {
+    return recordAttemptFailure(supabase, storyId, story.attempts ?? 0, err);
+  }
+}
+
+/** Step 2 wrapper: expand a batch of beats into narration + image prompts. */
+export const scriptBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { storyId: string; from: number }) => input)
+  .handler(async ({ data, context }) => runScriptBatch(context.supabase, data.storyId, data.from));
+
+/** Step 3 wrapper: draw + narrate a single scene. */
+export const renderScene = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { storyId: string; idx: number }) => input)
+  .handler(async ({ data, context }) => runRenderScene(context.supabase, data.storyId, data.idx));
 
 export const markFailed = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -296,6 +411,7 @@ export const resumeStory = createServerFn({ method: "POST" })
       .update({
         status: (count ?? 0) > 0 ? "scripting" : "illustrating",
         error_message: null,
+        attempts: 0,
       })
       .eq("id", data.storyId);
     return { ok: true };
@@ -364,10 +480,7 @@ export const previewVoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { language: LanguageId; voiceType: VoiceTypeId }) => input)
   .handler(async ({ data }) => {
-    const text =
-      data.language === "ta_CBE"
-        ? "வணக்கம் குட்டீஸ்! இன்னிக்கு ஒரு அழகான கதை சொல்லப் போறேன், கேட்கறீங்களா?"
-        : "Hello little one! Today I have a lovely story for you. Shall we begin?";
+    const text = data.language === "ta_CBE" ? "வணக்கம்!" : "Hello!";
     const speech = await generateSpeech(text, data.language, data.voiceType);
     let binary = "";
     speech.bytes.forEach((b) => (binary += String.fromCharCode(b)));

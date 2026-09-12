@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Doodle } from "@/components/Doodle";
 
 function safeNext(value: unknown): string | undefined {
   return typeof value === "string" && value.startsWith("/") && !value.startsWith("//")
@@ -84,14 +85,24 @@ function AuthPage() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center p-6">
-      <span className="confetti left-[12%] top-[18%] h-8 w-8 bg-secondary" />
-      <span
-        className="confetti right-[14%] top-[24%] h-6 w-6 bg-accent"
+      <Doodle
+        type="toy"
+        className="doodle left-[12%] top-[18%] hidden h-12 w-12 text-secondary sm:block"
+      />
+      <Doodle
+        type="kid"
+        className="doodle right-[14%] top-[24%] hidden h-11 w-11 text-accent sm:block"
         style={{ animationDelay: "1.2s" }}
       />
-      <span
-        className="confetti bottom-[16%] left-[22%] h-5 w-5 bg-primary/50"
+      <Doodle
+        type="bag"
+        className="doodle bottom-[16%] left-[22%] hidden h-10 w-10 text-primary/60 sm:block"
         style={{ animationDelay: "2.1s" }}
+      />
+      <Doodle
+        type="book"
+        className="doodle bottom-[20%] right-[10%] hidden h-11 w-11 text-secondary/60 sm:block"
+        style={{ animationDelay: "3s" }}
       />
 
       <div className="ink relative w-full max-w-md rounded-3xl bg-card p-8">
@@ -178,4 +189,3 @@ function AuthPage() {
     </main>
   );
 }
-

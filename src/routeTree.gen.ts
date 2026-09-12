@@ -16,8 +16,10 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
+import { Route as AuthenticatedVideoRouteImport } from './routes/_authenticated/video'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AuthenticatedStoryStoryIdRouteImport } from './routes/_authenticated/story.$storyId'
+import { Route as ApiCronProcessStoriesRouteImport } from './routes/api/cron/process-stories'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -54,6 +56,11 @@ const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedVideoRoute = AuthenticatedVideoRouteImport.update({
+  id: '/video',
+  path: '/video',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   id: '/.lovable/oauth/consent',
   path: '/.lovable/oauth/consent',
@@ -65,6 +72,11 @@ const AuthenticatedStoryStoryIdRoute =
     path: '/story/$storyId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiCronProcessStoriesRoute = ApiCronProcessStoriesRouteImport.update({
+  id: '/api/cron/process-stories',
+  path: '/api/cron/process-stories',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -73,8 +85,10 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/library': typeof AuthenticatedLibraryRoute
+  '/video': typeof AuthenticatedVideoRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/story/$storyId': typeof AuthenticatedStoryStoryIdRoute
+  '/api/cron/process-stories': typeof ApiCronProcessStoriesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -83,8 +97,10 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/library': typeof AuthenticatedLibraryRoute
+  '/video': typeof AuthenticatedVideoRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/story/$storyId': typeof AuthenticatedStoryStoryIdRoute
+  '/api/cron/process-stories': typeof ApiCronProcessStoriesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -95,8 +111,10 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
+  '/_authenticated/video': typeof AuthenticatedVideoRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/_authenticated/story/$storyId': typeof AuthenticatedStoryStoryIdRoute
+  '/api/cron/process-stories': typeof ApiCronProcessStoriesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -107,8 +125,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/.well-known/oauth-protected-resource'
     | '/library'
+    | '/video'
     | '/.lovable/oauth/consent'
     | '/story/$storyId'
+    | '/api/cron/process-stories'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -117,8 +137,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/.well-known/oauth-protected-resource'
     | '/library'
+    | '/video'
     | '/.lovable/oauth/consent'
     | '/story/$storyId'
+    | '/api/cron/process-stories'
   id:
     | '__root__'
     | '/'
@@ -128,8 +150,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/library'
+    | '/_authenticated/video'
     | '/.lovable/oauth/consent'
     | '/_authenticated/story/$storyId'
+    | '/api/cron/process-stories'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -140,6 +164,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
+  ApiCronProcessStoriesRoute: typeof ApiCronProcessStoriesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -193,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLibraryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/video': {
+      id: '/_authenticated/video'
+      path: '/video'
+      fullPath: '/video'
+      preLoaderRoute: typeof AuthenticatedVideoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/.lovable/oauth/consent': {
       id: '/.lovable/oauth/consent'
       path: '/.lovable/oauth/consent'
@@ -207,16 +239,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStoryStoryIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/cron/process-stories': {
+      id: '/api/cron/process-stories'
+      path: '/api/cron/process-stories'
+      fullPath: '/api/cron/process-stories'
+      preLoaderRoute: typeof ApiCronProcessStoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
+  AuthenticatedVideoRoute: typeof AuthenticatedVideoRoute
   AuthenticatedStoryStoryIdRoute: typeof AuthenticatedStoryStoryIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
+  AuthenticatedVideoRoute: AuthenticatedVideoRoute,
   AuthenticatedStoryStoryIdRoute: AuthenticatedStoryStoryIdRoute,
 }
 
@@ -232,6 +273,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
+  ApiCronProcessStoriesRoute: ApiCronProcessStoriesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

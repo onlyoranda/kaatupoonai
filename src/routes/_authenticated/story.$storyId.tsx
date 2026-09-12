@@ -2,13 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import {
-  getStory,
-  scriptBatch,
-  renderScene,
-  markFailed,
-  resumeStory,
-} from "@/lib/story.functions";
+import { getStory, scriptBatch, renderScene, markFailed, resumeStory } from "@/lib/story.functions";
 import { STATUS_LABELS } from "@/lib/story-config";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -36,6 +30,10 @@ type Scene = {
   audioUrl: string | null;
 };
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function StoryPage() {
   const { storyId } = Route.useParams();
   const load = useServerFn(getStory);
@@ -44,13 +42,13 @@ function StoryPage() {
   const fail = useServerFn(markFailed);
   const resume = useServerFn(resumeStory);
 
-
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState("scripting");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [attempt, setAttempt] = useState(0);
   const [retrying, setRetrying] = useState(false);
+  const [hiccup, setHiccup] = useState(false);
   const running = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -77,8 +75,16 @@ function StoryPage() {
         while (!cancelled && res.scenes.some((s) => s.status === "beat")) {
           const before = res.scenes.filter((s) => s.status === "beat").length;
           const from = res.scenes.find((s) => s.status === "beat")!.idx;
-          await script({ data: { storyId, from } });
+          const step = await script({ data: { storyId, from } });
           res = await refresh();
+          if (step.retrying) {
+            // A transient hiccup (AI gateway blip, timeout, etc.) — the
+            // story isn't failed, just wait a moment and try again.
+            setHiccup(true);
+            await sleep(4000);
+            continue;
+          }
+          setHiccup(false);
           const after = res.scenes.filter((s) => s.status === "beat").length;
           stalled = after < before ? 0 : stalled + 1;
           if (stalled >= 2) {
@@ -90,8 +96,14 @@ function StoryPage() {
         while (!cancelled) {
           const next = res.scenes.find((s) => s.status !== "ready");
           if (!next) break;
-          await render({ data: { storyId, idx: next.idx } });
+          const step = await render({ data: { storyId, idx: next.idx } });
           res = await refresh();
+          if (step.retrying) {
+            setHiccup(true);
+            await sleep(4000);
+          } else {
+            setHiccup(false);
+          }
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Something went wrong.";
@@ -133,9 +145,7 @@ function StoryPage() {
       <header className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl">{title || "Making your story…"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {STATUS_LABELS[status] ?? status}
-          </p>
+          <p className="text-sm text-muted-foreground">{STATUS_LABELS[status] ?? status}</p>
         </div>
         <Link to="/library">
           <Button variant="secondary" className="ink">
@@ -161,7 +171,9 @@ function StoryPage() {
         <div className="ink rounded-2xl bg-card p-6">
           <Progress value={(ready / total) * 100} className="h-3" />
           <p className="mt-3 text-sm text-muted-foreground">
-            {ready} of {scenes.length || "…"} scenes drawn and narrated. Keep this page open.
+            {hiccup
+              ? "Hit a small hiccup — retrying automatically, no need to do anything."
+              : `${ready} of ${scenes.length || "…"} scenes drawn and narrated. Feel free to close this tab — we'll email you when it's ready.`}
           </p>
           <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-5">
             {scenes.map((s) =>

@@ -37,9 +37,16 @@ function Library() {
     <main className="mx-auto max-w-3xl px-5 py-10">
       <header className="mb-8 flex items-center justify-between gap-4">
         <h1 className="wavy text-3xl">My stories</h1>
-        <Link to="/">
-          <Button className="ink rounded-full">New story</Button>
-        </Link>
+        <div className="flex shrink-0 gap-2">
+          <Link to="/video">
+            <Button variant="secondary" className="ink rounded-full">
+              Video generator
+            </Button>
+          </Link>
+          <Link to="/">
+            <Button className="ink rounded-full">New story</Button>
+          </Link>
+        </div>
       </header>
 
       {isLoading ? (
@@ -55,7 +62,6 @@ function Library() {
         <ul className="space-y-3">
           {data.map((s) => (
             <li key={s.id} className="ink tilt flex items-center gap-4 rounded-2xl bg-card p-4">
-
               <div className="min-w-0 flex-1">
                 <Link
                   to="/story/$storyId"
@@ -65,8 +71,8 @@ function Library() {
                   {s.title}
                 </Link>
                 <div className="text-xs text-muted-foreground">
-                  {STATUS_LABELS[s.status] ?? s.status} ·{" "}
-                  {labelOf(LANGUAGES, s.narration_language)} · {s.scene_count} scenes
+                  {STATUS_LABELS[s.status] ?? s.status} · {labelOf(LANGUAGES, s.narration_language)}{" "}
+                  · {s.scene_count} scenes
                 </div>
               </div>
               <Button

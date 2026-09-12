@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { startStory, previewVoice } from "@/lib/story.functions";
+import { startStory, previewVoice, enhanceIdea } from "@/lib/story.functions";
 import {
   ART_STYLES,
   LANGUAGES,
@@ -16,6 +16,7 @@ import {
 } from "@/lib/story-config";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Doodle } from "@/components/Doodle";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -61,7 +62,6 @@ function Choice({
     >
       <div className="font-display text-sm">{label}</div>
       {blurb ? <div className="text-xs opacity-80">{blurb}</div> : null}
-
     </button>
   );
 }
@@ -71,6 +71,7 @@ function Home() {
   const { user, loading, signOut } = useAuth();
   const start = useServerFn(startStory);
   const preview = useServerFn(previewVoice);
+  const enhance = useServerFn(enhanceIdea);
 
   const [idea, setIdea] = useState("");
   const [artStyle, setArtStyle] = useState<ArtStyleId>("saturday_2d");
@@ -80,6 +81,7 @@ function Home() {
   const [ageBand, setAgeBand] = useState<AgeBandId>("4_7");
   const [busy, setBusy] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
 
   async function hearVoice() {
     if (!user) return navigate({ to: "/auth" });
@@ -91,6 +93,20 @@ function Home() {
       toast.error(err instanceof Error ? err.message : "Could not play the sample.");
     } finally {
       setPreviewing(false);
+    }
+  }
+
+  async function enhanceText() {
+    if (!user) return navigate({ to: "/auth" });
+    if (idea.trim().length < 3) return toast.error("Write a little bit first.");
+    setEnhancing(true);
+    try {
+      const res = await enhance({ data: { idea } });
+      setIdea(res.idea);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not enhance the idea.");
+    } finally {
+      setEnhancing(false);
     }
   }
 
@@ -111,14 +127,34 @@ function Home() {
 
   return (
     <main className="relative mx-auto max-w-4xl px-5 py-10">
-      <span className="confetti right-[6%] top-[6%] hidden h-10 w-10 bg-secondary sm:block" />
-      <span
-        className="confetti left-[3%] top-[38%] hidden h-6 w-6 bg-accent sm:block"
+      <Doodle
+        type="kid"
+        className="doodle right-[5%] top-[5%] hidden h-14 w-14 text-secondary sm:block"
+      />
+      <Doodle
+        type="toy"
+        className="doodle left-[2%] top-[38%] hidden h-11 w-11 text-accent sm:block"
         style={{ animationDelay: "1.5s" }}
       />
-      <span
-        className="confetti bottom-[8%] right-[8%] hidden h-8 w-8 bg-primary/40 sm:block"
+      <Doodle
+        type="bag"
+        className="doodle bottom-[26%] right-[6%] hidden h-12 w-12 text-primary/60 sm:block"
         style={{ animationDelay: "2.4s" }}
+      />
+      <Doodle
+        type="ball"
+        className="doodle bottom-[4%] left-[4%] hidden h-12 w-12 text-secondary/70 sm:block"
+        style={{ animationDelay: "3.3s" }}
+      />
+      <Doodle
+        type="kite"
+        className="doodle left-[8%] top-[8%] hidden h-14 w-14 text-accent/70 sm:block"
+        style={{ animationDelay: "0.6s" }}
+      />
+      <Doodle
+        type="teddy"
+        className="doodle bottom-[8%] right-[18%] hidden h-12 w-12 text-primary/50 sm:block"
+        style={{ animationDelay: "4.1s" }}
       />
 
       <header className="mb-10 flex items-start justify-between gap-4">
@@ -131,6 +167,11 @@ function Home() {
         <div className="flex shrink-0 gap-2">
           {!loading && user ? (
             <>
+              <Link to="/video">
+                <Button variant="secondary" className="ink rounded-full">
+                  Video generator
+                </Button>
+              </Link>
               <Link to="/library">
                 <Button variant="secondary" className="ink rounded-full">
                   My stories
@@ -151,10 +192,20 @@ function Home() {
       </header>
 
       <section className="ink relative rounded-3xl bg-card p-6 sm:p-8">
-
-        <label htmlFor="idea" className="font-display text-sm">
-          What should the story be about?
-        </label>
+        <div className="flex items-center justify-between gap-3">
+          <label htmlFor="idea" className="font-display text-sm">
+            What should the story be about?
+          </label>
+          <Button
+            type="button"
+            variant="secondary"
+            className="ink shrink-0 rounded-full px-3 py-1 text-xs"
+            onClick={enhanceText}
+            disabled={enhancing || idea.trim().length < 3}
+          >
+            {enhancing ? "Enhancing…" : "✨ Enhance"}
+          </Button>
+        </div>
         <Textarea
           id="idea"
           value={idea}
@@ -207,12 +258,7 @@ function Home() {
                 />
               ))}
             </div>
-            <Button
-              variant="ghost"
-              className="mt-2 px-0"
-              onClick={hearVoice}
-              disabled={previewing}
-            >
+            <Button variant="ghost" className="mt-2 px-0" onClick={hearVoice} disabled={previewing}>
               {previewing ? "Loading sample…" : "▶ Hear this voice"}
             </Button>
           </div>
@@ -234,7 +280,8 @@ function Home() {
         </div>
 
         <p className="mt-8 text-sm text-muted-foreground">
-          Your story takes a few minutes to make. Keep this page open while it's being made.
+          Your story takes a few minutes to make. It'll keep going in the background even if you
+          close this tab — we'll email you the moment it's ready.
         </p>
         <Button
           className="ink mt-3 w-full rounded-full py-7 text-lg"
@@ -243,7 +290,6 @@ function Home() {
         >
           {busy ? "Writing the story…" : "Create my cartoon story ✨"}
         </Button>
-
       </section>
     </main>
   );

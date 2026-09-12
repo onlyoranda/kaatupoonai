@@ -54,7 +54,7 @@ export const LANGUAGES: {
   },
   {
     id: "ta_CBE",
-    label: "Tamil (Coimbatore)",
+    label: "Tamil",
     blurb: "Everyday Kongu Tamil, not textbook Tamil",
   },
 ];
@@ -96,9 +96,6 @@ export const STATUS_LABELS: Record<string, string> = {
   failed: "Something went wrong",
 };
 
-export function labelOf<T extends { id: string; label: string }>(
-  list: T[],
-  id: string,
-): string {
+export function labelOf<T extends { id: string; label: string }>(list: T[], id: string): string {
   return list.find((item) => item.id === id)?.label ?? id;
 }

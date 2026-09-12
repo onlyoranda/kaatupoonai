@@ -3,6 +3,33 @@ import type { LanguageId, VoiceTypeId } from "./story-config";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Retries a flaky async operation with a short linear backoff. Used to ride
+ * out transient failures — the AI gateway timing out, an image/speech
+ * request getting killed for running out of memory, a dropped connection —
+ * without giving up on the very first hiccup.
+ */
+export async function withRetries<T>(
+  fn: () => Promise<T>,
+  attempts = 3,
+  baseDelayMs = 700,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < attempts) await sleep(baseDelayMs * attempt);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("The request failed repeatedly.");
+}
+
 function apiKey(): string {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("AI is not configured yet.");
@@ -31,6 +58,7 @@ export async function chatJson<T>(params: {
   system: string;
   user: string;
   maxTokens?: number;
+  model?: string | undefined;
 }): Promise<T> {
   const res = await fetch(`${GATEWAY}/chat/completions`, {
     method: "POST",
@@ -39,7 +67,7 @@ export async function chatJson<T>(params: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3.8-flash",
+      model: params.model ?? "google/gemini-3.8-flash",
       messages: [
         { role: "system", content: params.system },
         { role: "user", content: params.user },
@@ -56,6 +84,34 @@ export async function chatJson<T>(params: {
   };
   const text = payload.choices?.[0]?.message?.content ?? "";
   return parseJson<T>(text);
+}
+
+// The idea box is short and rough by design — parents type in a hurry.
+// Claude turns that rough line into a slightly richer prompt (more sensory
+// detail, a clearer shape) for the story writer, without changing what the
+// parent actually asked for.
+const ENHANCE_MODEL = "anthropic/claude-haiku-4-5";
+
+export async function enhanceStoryIdea(idea: string): Promise<string> {
+  const ask = (model?: string) =>
+    chatJson<{ enhanced: string }>({
+      model,
+      system:
+        "You help a parent turn one rough line into a slightly richer idea for a children's cartoon story generator. Keep their exact characters, setting and core idea. Add a touch of warmth or sensory detail, nothing violent or scary. Output 1-2 short sentences, plain language a young child's parent would use. Reply only with JSON.",
+      user: `Parent's rough idea: "${idea}"\n\nReturn JSON { "enhanced": string }.`,
+      maxTokens: 300,
+    });
+
+  let out: { enhanced: string };
+  try {
+    out = await ask(ENHANCE_MODEL);
+  } catch {
+    // The Claude connector may not be enabled on this workspace yet —
+    // fall back to the default gateway model rather than failing outright.
+    out = await ask();
+  }
+  const enhanced = out?.enhanced?.trim();
+  return enhanced && enhanced.length > 0 ? enhanced : idea;
 }
 
 function parseJson<T>(text: string): T {
@@ -198,8 +254,7 @@ const TAMIL_STYLE =
 
 export function voicePreset(language: LanguageId, voiceType: VoiceTypeId): VoicePreset {
   if (language === "ta_CBE") {
-    const voice =
-      voiceType === "male" ? "Charon" : voiceType === "kid" ? "Leda" : "Kore";
+    const voice = voiceType === "male" ? "Charon" : voiceType === "kid" ? "Leda" : "Kore";
     const extra =
       voiceType === "kid"
         ? " Sound like a bright, playful young child telling the story."
