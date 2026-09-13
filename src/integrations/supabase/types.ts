@@ -89,7 +89,6 @@ export type Database = {
         Row: {
           age_band: string
           art_style: string
-          attempts: number
           character_bible: string | null
           created_at: string
           error_message: string | null
@@ -97,7 +96,6 @@ export type Database = {
           idea: string
           length_pref: string
           narration_language: string
-          notified_at: string | null
           scene_count: number
           status: string
           title: string
@@ -108,7 +106,6 @@ export type Database = {
         Insert: {
           age_band?: string
           art_style?: string
-          attempts?: number
           character_bible?: string | null
           created_at?: string
           error_message?: string | null
@@ -116,7 +113,6 @@ export type Database = {
           idea: string
           length_pref?: string
           narration_language?: string
-          notified_at?: string | null
           scene_count?: number
           status?: string
           title?: string
@@ -127,7 +123,6 @@ export type Database = {
         Update: {
           age_band?: string
           art_style?: string
-          attempts?: number
           character_bible?: string | null
           created_at?: string
           error_message?: string | null
@@ -135,7 +130,6 @@ export type Database = {
           idea?: string
           length_pref?: string
           narration_language?: string
-          notified_at?: string | null
           scene_count?: number
           status?: string
           title?: string
