@@ -97,55 +97,40 @@ export async function chatJson<T>(params: {
   maxTokens?: number;
   model?: string | undefined;
 }): Promise<T> {
-  const res = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: params.model ?? "google/gemini-3.8-flash",
+  let text: string;
+  try {
+    const out = await hfClient().chatCompletion({
+      model: params.model ?? HF_CHAT_MODEL,
       messages: [
         { role: "system", content: params.system },
         { role: "user", content: params.user },
       ],
       response_format: { type: "json_object" },
       max_tokens: params.maxTokens ?? 16000,
-    }),
-  });
-
-  if (!res.ok) throw gatewayError(res.status, await res.text().catch(() => ""));
-
-  const payload = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  const text = payload.choices?.[0]?.message?.content ?? "";
+    });
+    text = out.choices?.[0]?.message?.content ?? "";
+  } catch (err) {
+    throw hfError(err);
+  }
   return parseJson<T>(text);
 }
 
 // The idea box is short and rough by design — parents type in a hurry.
-// Claude turns that rough line into a slightly richer prompt (more sensory
-// detail, a clearer shape) for the story writer, without changing what the
-// parent actually asked for.
-const ENHANCE_MODEL = "anthropic/claude-haiku-4-5";
-
+// The chat model turns that rough line into a slightly richer prompt (more
+// sensory detail, a clearer shape) for the story writer, without changing
+// what the parent actually asked for.
 export async function enhanceStoryIdea(idea: string): Promise<string> {
-  const ask = (model?: string) =>
-    chatJson<{ enhanced: string }>({
-      model,
+  let out: { enhanced: string };
+  try {
+    out = await chatJson<{ enhanced: string }>({
       system:
         "You help a parent turn one rough line into a slightly richer idea for a children's cartoon story generator. Keep their exact characters, setting and core idea. Add a touch of warmth or sensory detail, nothing violent or scary. Output 1-2 short sentences, plain language a young child's parent would use. Reply only with JSON.",
       user: `Parent's rough idea: "${idea}"\n\nReturn JSON { "enhanced": string }.`,
       maxTokens: 300,
     });
-
-  let out: { enhanced: string };
-  try {
-    out = await ask(ENHANCE_MODEL);
   } catch {
-    // The Claude connector may not be enabled on this workspace yet —
-    // fall back to the default gateway model rather than failing outright.
-    out = await ask();
+    // Polishing the idea is a nice-to-have — never block the story on it.
+    return idea;
   }
   const enhanced = out?.enhanced?.trim();
   return enhanced && enhanced.length > 0 ? enhanced : idea;
