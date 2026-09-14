@@ -1,7 +1,44 @@
-// Server-only helpers for the Lovable AI Gateway.
+// Server-only AI helpers.
+// Story text and illustrations run on Hugging Face Inference Providers
+// (same account/token as the video generator). Narration stays on the
+// Lovable AI Gateway, which has the Tamil/English voice characters we need.
+import { InferenceClient } from "@huggingface/inference";
 import type { LanguageId, VoiceTypeId } from "./story-config";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
+
+/** Instruction-following chat model used for outlines, scripts and idea polish. */
+const HF_CHAT_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
+/** Text-to-image model used for the cartoon scene illustrations. */
+const HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell";
+
+function hfClient(): InferenceClient {
+  const key = process.env["HF_TOKEN"];
+  if (!key) throw new Error("AI is not configured yet.");
+  return new InferenceClient(key);
+}
+
+/** Turns a Hugging Face failure into a clear, user-facing message. */
+function hfError(err: unknown): Error {
+  const raw = err instanceof Error ? err.message : String(err);
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("402") ||
+    lower.includes("quota") ||
+    lower.includes("credits") ||
+    lower.includes("payment required") ||
+    lower.includes("exceeded your monthly")
+  ) {
+    return new Error(`Out of AI credits: ${raw.slice(0, 300)}`);
+  }
+  if (lower.includes("429") || lower.includes("rate limit") || lower.includes("too many")) {
+    return new Error("The story machine is busy right now. Please try again in a moment.");
+  }
+  if (lower.includes("503") || lower.includes("loading")) {
+    return new Error("The story machine is warming up — please try again in a minute.");
+  }
+  return new Error(`AI request failed: ${raw.slice(0, 300)}`);
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -60,55 +97,40 @@ export async function chatJson<T>(params: {
   maxTokens?: number;
   model?: string | undefined;
 }): Promise<T> {
-  const res = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: params.model ?? "google/gemini-3.8-flash",
+  let text: string;
+  try {
+    const out = await hfClient().chatCompletion({
+      model: params.model ?? HF_CHAT_MODEL,
       messages: [
         { role: "system", content: params.system },
         { role: "user", content: params.user },
       ],
       response_format: { type: "json_object" },
       max_tokens: params.maxTokens ?? 16000,
-    }),
-  });
-
-  if (!res.ok) throw gatewayError(res.status, await res.text().catch(() => ""));
-
-  const payload = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  const text = payload.choices?.[0]?.message?.content ?? "";
+    });
+    text = out.choices?.[0]?.message?.content ?? "";
+  } catch (err) {
+    throw hfError(err);
+  }
   return parseJson<T>(text);
 }
 
 // The idea box is short and rough by design — parents type in a hurry.
-// Claude turns that rough line into a slightly richer prompt (more sensory
-// detail, a clearer shape) for the story writer, without changing what the
-// parent actually asked for.
-const ENHANCE_MODEL = "anthropic/claude-haiku-4-5";
-
+// The chat model turns that rough line into a slightly richer prompt (more
+// sensory detail, a clearer shape) for the story writer, without changing
+// what the parent actually asked for.
 export async function enhanceStoryIdea(idea: string): Promise<string> {
-  const ask = (model?: string) =>
-    chatJson<{ enhanced: string }>({
-      model,
+  let out: { enhanced: string };
+  try {
+    out = await chatJson<{ enhanced: string }>({
       system:
         "You help a parent turn one rough line into a slightly richer idea for a children's cartoon story generator. Keep their exact characters, setting and core idea. Add a touch of warmth or sensory detail, nothing violent or scary. Output 1-2 short sentences, plain language a young child's parent would use. Reply only with JSON.",
       user: `Parent's rough idea: "${idea}"\n\nReturn JSON { "enhanced": string }.`,
       maxTokens: 300,
     });
-
-  let out: { enhanced: string };
-  try {
-    out = await ask(ENHANCE_MODEL);
   } catch {
-    // The Claude connector may not be enabled on this workspace yet —
-    // fall back to the default gateway model rather than failing outright.
-    out = await ask();
+    // Polishing the idea is a nice-to-have — never block the story on it.
+    return idea;
   }
   const enhanced = out?.enhanced?.trim();
   return enhanced && enhanced.length > 0 ? enhanced : idea;
@@ -209,35 +231,23 @@ export function repairTruncatedJson(text: string): string | null {
   return prefix + closing;
 }
 
-/** Generates one illustration and returns raw PNG bytes. */
+/** Generates one illustration and returns raw image bytes. */
 export async function generateImage(prompt: string): Promise<Uint8Array> {
-  const res = await fetch(`${GATEWAY}/images/generations`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3.1-flash-image",
-      prompt,
-      n: 1,
-    }),
-  });
+  let out: Blob;
+  try {
+    out = await hfClient().textToImage(
+      { model: HF_IMAGE_MODEL, inputs: prompt },
+      { outputType: "blob" },
+    );
+  } catch (err) {
+    throw hfError(err);
+  }
 
-  if (!res.ok) throw gatewayError(res.status, await res.text().catch(() => ""));
-
-  const payload = (await res.json()) as { data?: { b64_json?: string }[] };
-  const b64 = payload.data?.[0]?.b64_json;
-  if (!b64) throw new Error("No picture came back. Please try again.");
-  return base64ToBytes(b64);
-}
-
-function base64ToBytes(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const bytes = new Uint8Array(await out.arrayBuffer());
+  if (bytes.byteLength < 256) throw new Error("No picture came back. Please try again.");
   return bytes;
 }
+
 
 type VoicePreset = {
   provider: "openai" | "google";
