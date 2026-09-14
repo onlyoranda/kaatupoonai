@@ -233,21 +233,17 @@ export function repairTruncatedJson(text: string): string | null {
 
 /** Generates one illustration and returns raw image bytes. */
 export async function generateImage(prompt: string): Promise<Uint8Array> {
-  let out: Blob | string;
+  let out: Blob;
   try {
-    out = await hfClient().textToImage({
-      model: HF_IMAGE_MODEL,
-      inputs: prompt,
-    });
+    out = await hfClient().textToImage(
+      { model: HF_IMAGE_MODEL, inputs: prompt },
+      { outputType: "blob" },
+    );
   } catch (err) {
     throw hfError(err);
   }
 
-  // Some providers return a base64 string instead of binary data.
-  const bytes =
-    typeof out === "string"
-      ? base64ToBytes(out.replace(/^data:[^,]+,/, ""))
-      : new Uint8Array(await out.arrayBuffer());
+  const bytes = new Uint8Array(await out.arrayBuffer());
   if (bytes.byteLength < 256) throw new Error("No picture came back. Please try again.");
   return bytes;
 }
