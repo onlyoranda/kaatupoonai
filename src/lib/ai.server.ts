@@ -1,7 +1,44 @@
-// Server-only helpers for the Lovable AI Gateway.
+// Server-only AI helpers.
+// Story text and illustrations run on Hugging Face Inference Providers
+// (same account/token as the video generator). Narration stays on the
+// Lovable AI Gateway, which has the Tamil/English voice characters we need.
+import { InferenceClient } from "@huggingface/inference";
 import type { LanguageId, VoiceTypeId } from "./story-config";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
+
+/** Instruction-following chat model used for outlines, scripts and idea polish. */
+const HF_CHAT_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
+/** Text-to-image model used for the cartoon scene illustrations. */
+const HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell";
+
+function hfClient(): InferenceClient {
+  const key = process.env["HF_TOKEN"];
+  if (!key) throw new Error("AI is not configured yet.");
+  return new InferenceClient(key);
+}
+
+/** Turns a Hugging Face failure into a clear, user-facing message. */
+function hfError(err: unknown): Error {
+  const raw = err instanceof Error ? err.message : String(err);
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("402") ||
+    lower.includes("quota") ||
+    lower.includes("credits") ||
+    lower.includes("payment required") ||
+    lower.includes("exceeded your monthly")
+  ) {
+    return new Error(`Out of AI credits: ${raw.slice(0, 300)}`);
+  }
+  if (lower.includes("429") || lower.includes("rate limit") || lower.includes("too many")) {
+    return new Error("The story machine is busy right now. Please try again in a moment.");
+  }
+  if (lower.includes("503") || lower.includes("loading")) {
+    return new Error("The story machine is warming up — please try again in a minute.");
+  }
+  return new Error(`AI request failed: ${raw.slice(0, 300)}`);
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
