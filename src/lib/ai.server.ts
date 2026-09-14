@@ -231,27 +231,21 @@ export function repairTruncatedJson(text: string): string | null {
   return prefix + closing;
 }
 
-/** Generates one illustration and returns raw PNG bytes. */
+/** Generates one illustration and returns raw image bytes. */
 export async function generateImage(prompt: string): Promise<Uint8Array> {
-  const res = await fetch(`${GATEWAY}/images/generations`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3.1-flash-image",
-      prompt,
-      n: 1,
-    }),
-  });
+  let blob: Blob;
+  try {
+    blob = await hfClient().textToImage({
+      model: HF_IMAGE_MODEL,
+      inputs: prompt,
+    });
+  } catch (err) {
+    throw hfError(err);
+  }
 
-  if (!res.ok) throw gatewayError(res.status, await res.text().catch(() => ""));
-
-  const payload = (await res.json()) as { data?: { b64_json?: string }[] };
-  const b64 = payload.data?.[0]?.b64_json;
-  if (!b64) throw new Error("No picture came back. Please try again.");
-  return base64ToBytes(b64);
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (bytes.byteLength < 256) throw new Error("No picture came back. Please try again.");
+  return bytes;
 }
 
 function base64ToBytes(b64: string): Uint8Array {
