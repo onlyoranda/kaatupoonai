@@ -20,6 +20,7 @@ import { Route as AuthenticatedVideoRouteImport } from './routes/_authenticated/
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AuthenticatedStoryStoryIdRouteImport } from './routes/_authenticated/story.$storyId'
 import { Route as ApiCronProcessStoriesRouteImport } from './routes/api/cron/process-stories'
+import { Route as ApiPublicCronProcessStoriesRouteImport } from './routes/api/public/cron/process-stories'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -77,6 +78,12 @@ const ApiCronProcessStoriesRoute = ApiCronProcessStoriesRouteImport.update({
   path: '/api/cron/process-stories',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronProcessStoriesRoute =
+  ApiPublicCronProcessStoriesRouteImport.update({
+    id: '/api/public/cron/process-stories',
+    path: '/api/public/cron/process-stories',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/story/$storyId': typeof AuthenticatedStoryStoryIdRoute
   '/api/cron/process-stories': typeof ApiCronProcessStoriesRoute
+  '/api/public/cron/process-stories': typeof ApiPublicCronProcessStoriesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,6 +109,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/story/$storyId': typeof AuthenticatedStoryStoryIdRoute
   '/api/cron/process-stories': typeof ApiCronProcessStoriesRoute
+  '/api/public/cron/process-stories': typeof ApiPublicCronProcessStoriesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,6 +124,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/_authenticated/story/$storyId': typeof AuthenticatedStoryStoryIdRoute
   '/api/cron/process-stories': typeof ApiCronProcessStoriesRoute
+  '/api/public/cron/process-stories': typeof ApiPublicCronProcessStoriesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/story/$storyId'
     | '/api/cron/process-stories'
+    | '/api/public/cron/process-stories'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/story/$storyId'
     | '/api/cron/process-stories'
+    | '/api/public/cron/process-stories'
   id:
     | '__root__'
     | '/'
@@ -154,6 +166,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/_authenticated/story/$storyId'
     | '/api/cron/process-stories'
+    | '/api/public/cron/process-stories'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -165,6 +178,7 @@ export interface RootRouteChildren {
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   ApiCronProcessStoriesRoute: typeof ApiCronProcessStoriesRoute
+  ApiPublicCronProcessStoriesRoute: typeof ApiPublicCronProcessStoriesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -246,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronProcessStoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/process-stories': {
+      id: '/api/public/cron/process-stories'
+      path: '/api/public/cron/process-stories'
+      fullPath: '/api/public/cron/process-stories'
+      preLoaderRoute: typeof ApiPublicCronProcessStoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -274,6 +295,7 @@ const rootRouteChildren: RootRouteChildren = {
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   ApiCronProcessStoriesRoute: ApiCronProcessStoriesRoute,
+  ApiPublicCronProcessStoriesRoute: ApiPublicCronProcessStoriesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
